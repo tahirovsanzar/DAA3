@@ -59,6 +59,10 @@ public final class Benchmark {
             Measurement topoDag = measure(() -> ConnectivityAlgorithms.topologicalSort(dag));
             ConnectivityAlgorithms.Topology td = (ConnectivityAlgorithms.Topology) topoDag.result();
             if (!td.dag()) throw new AssertionError("Generated DAG contains a cycle");
+            int[] position = new int[v];
+            for (int i = 0; i < v; i++) position[td.order().get(i)] = i;
+            for (int u = 0; u < v; u++) for (int destination : dag.neighbors(u))
+                if (position[u] >= position[destination]) throw new AssertionError("Invalid DAG ordering");
             row(csv, "Topological_DAG", v, e, topoDag, td.edgeExaminations(), 0, "dag=true");
 
             Measurement topoCycle = measure(() -> ConnectivityAlgorithms.topologicalSort(cyclic));
@@ -68,10 +72,18 @@ public final class Benchmark {
 
             Measurement scc = measure(() -> ConnectivityAlgorithms.kosaraju(cyclic));
             ConnectivityAlgorithms.Components c = (ConnectivityAlgorithms.Components) scc.result();
+            boolean[] assigned = new boolean[v];
+            for (var group : c.groups()) for (int vertex : group) {
+                if (assigned[vertex]) throw new AssertionError("Vertex in two SCCs");
+                assigned[vertex] = true;
+            }
+            for (boolean present : assigned) if (!present) throw new AssertionError("Vertex missing from SCCs");
             row(csv, "Kosaraju", v, e, scc, c.edgeExaminations(), 0, "components=" + c.groups().size());
 
             Measurement dijkstra = measure(() -> Dijkstra.run(roads, 0));
             Dijkstra.Result d = (Dijkstra.Result) dijkstra.result();
+            for (long distance : d.distance()) if (distance == Dijkstra.INF)
+                throw new AssertionError("Connected road graph has unreachable district");
             row(csv, "Dijkstra", v, e, dijkstra, d.edgeExaminations(), d.relaxations() + d.heapComparisons(),
                 "source=0;relaxations=" + d.relaxations());
         }

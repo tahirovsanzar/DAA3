@@ -101,7 +101,7 @@ The DAG topological pass scanned `2E` edges: indegree creation and processing. T
 
 ## Testing
 
-Run `java -cp build Tests`. The suite currently makes 22 assertions and covers a small connected graph with duplicate weights and multiple possible MSTs, a disconnected graph, a single vertex, DSU repeated unions, a DAG's edge-by-edge ordering validity, a graph with multiple SCCs and a cycle, every vertex appearing in exactly one SCC, exact Dijkstra distances and path, an unreachable vertex, and rejection of a negative edge. The benchmark additionally checks that Kruskal and Prim agree on each generated connected graph, DAG inputs admit topological order, and cyclic inputs do not.
+Run `java -cp build Tests`. The suite currently makes 22 assertions and covers a small connected graph with duplicate weights and multiple possible MSTs, a disconnected graph, a single vertex, DSU repeated unions, a DAG's edge-by-edge ordering validity, a graph with multiple SCCs and a cycle, every vertex appearing in exactly one SCC, exact Dijkstra distances and path, an unreachable vertex, and rejection of a negative edge. The benchmark additionally checks that Kruskal and Prim agree on each generated connected graph, every directed edge respects the generated DAG ordering, cyclic inputs are rejected, every vertex belongs to exactly one SCC, and all districts in the connected road graph are reachable from district 0.
 
 ## Conclusion
 
