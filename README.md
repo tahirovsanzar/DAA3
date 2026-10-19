@@ -107,6 +107,3 @@ I included a `Tests` class with 22 assertions. It checks a small road graph with
 
 For road construction, either Kruskal or Prim gives the minimum total cost when the city graph is connected. If it is not connected, the result is a forest and the program reports that clearly. Kahn's algorithm fits service dependencies when they do not contain a cycle. Kosaraju is useful for finding groups connected in both directions. Dijkstra is the route-planning choice here because road distances are non-negative. The experiment did not show one MST algorithm winning at every size, which is a good reminder to consider both the graph and the implementation when choosing between them.
 
-## AI assistance
-
-AI assistance was used to draft parts of the code, plots, and this report. The test results and benchmark timings shown here were obtained by running the project.
