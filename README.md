@@ -6,7 +6,7 @@ I built a small Java program for planning connections between city districts. Ea
 
 ## Build and run
 
-I used Java 17. Run these commands from the project folder in PowerShell (or use the `Main`, `Tests`, and `Benchmark` run buttons in IntelliJ). Python 3 is only needed if you want to redraw the plots after running the benchmark.
+I used Java 17. Run these commands from the project folder in PowerShell (or use the `Main`, `Tests`, and `Benchmark` run buttons in IntelliJ). Python 3 and `matplotlib` are only needed to redraw the plots. If needed, install the plotting library once with `python -m pip install matplotlib`.
 
 ```powershell
 $sources = Get-ChildItem src -Recurse -Filter *.java | ForEach-Object FullName
@@ -85,9 +85,9 @@ The table below is from one run. Times are in milliseconds; the unrounded measur
 | Kosaraju | 1,000 | 5,000 | 1.773 | 15,000 | 0 | 8 SCCs |
 | Dijkstra | 1,000 | 5,000 | 3.697 | 10,000 | 37,174 | Source 0 |
 
-![Execution time versus vertices](results/plots/time_vs_vertices.svg)
+![Execution time versus vertices](results/plots/time_vs_vertices.png)
 
-![Execution time versus edges](results/plots/time_vs_edges.svg)
+![Execution time versus edges](results/plots/time_vs_edges.png)
 
 I used logarithmic axes so the small and large cases can be seen on the same plots. Both plots use the same benchmark data, once against vertices and once against edges.
 
@@ -106,3 +106,7 @@ I included a `Tests` class with 22 assertions. It checks a small road graph with
 ## Conclusion
 
 For road construction, either Kruskal or Prim gives the minimum total cost when the city graph is connected. If it is not connected, the result is a forest and the program reports that clearly. Kahn's algorithm fits service dependencies when they do not contain a cycle. Kosaraju is useful for finding groups connected in both directions. Dijkstra is the route-planning choice here because road distances are non-negative. The experiment did not show one MST algorithm winning at every size, which is a good reminder to consider both the graph and the implementation when choosing between them.
+
+## AI assistance
+
+AI assistance was used to draft parts of the code, plots, and this report. The test results and benchmark timings shown here were obtained by running the project.
