@@ -2,11 +2,11 @@
 
 ## Overview
 
-This Java 17 application represents districts as numbered vertices (`0` to `V-1`). An undirected weighted adjacency-list graph represents two-way roads; a directed adjacency-list graph represents one-way roads or dependencies. Each weighted edge stores a non-negative integer construction cost or travel distance. The same weighted graph supports minimum spanning tree (MST) and shortest-path tasks; a separate directed graph supports topological ordering and strongly connected components (SCCs).
+I built a small Java program for planning connections between city districts. Each district is a vertex, and a road is an edge with a cost or distance. Two-way roads go into an undirected weighted graph. One-way connections and service dependencies go into a directed graph. The program can find a cheap road network, check which places are connected, order dependent services, and find routes from one district to another.
 
 ## Build and run
 
-Run from this repository's root directory. A Java 17+ JDK is required. Python 3 is needed only to regenerate the SVG plots; the plotting script uses the standard library.
+I used Java 17. Run these commands from the project folder in PowerShell (or use the `Main`, `Tests`, and `Benchmark` run buttons in IntelliJ). Python 3 is only needed if you want to redraw the plots after running the benchmark.
 
 ```powershell
 $sources = Get-ChildItem src -Recurse -Filter *.java | ForEach-Object FullName
@@ -18,22 +18,22 @@ java -cp build Benchmark
 python scripts/plot_results.py
 ```
 
-`Benchmark` writes `results/tables/benchmark.csv`; its optional first argument changes that path. The two plots are regenerated from the CSV. On another operating system, compile all files under `src` into `build`, then run the same two Java classes. The checked-in CSV and plots are one measured run, so elapsed times on another computer will differ.
+`Main` shows one example city. `Tests` checks the edge cases. `Benchmark` saves its measurements to `results/tables/benchmark.csv`, and the Python script draws the plots from that file. You can also pass a different CSV path as the first argument to `Benchmark`. The times in this README are from my run; your times will probably be different.
 
 ## Implementation
 
-| Task | Algorithm and design |
+| Task | How I implemented it |
 |---|---|
-| MST | Kruskal sorts edges and uses a DSU with path compression and union by size. Prim starts at each unseen vertex and uses a binary-heap priority queue. Both return a minimum spanning **forest** for a disconnected graph and flag `connected=false`; on a connected graph the forest is an MST. |
-| Topological ordering | Kahn's algorithm counts indegrees and removes zero-indegree vertices using a priority queue. If fewer than `V` vertices are removed, a cycle exists and no order is returned. |
-| SCC | Kosaraju's algorithm uses two iterative DFS passes, with a reversed adjacency list between them. It returns every component as a list of vertex IDs. |
-| Shortest paths | Dijkstra uses a binary heap and lazy stale-entry removal. It returns `long` distances, predecessor paths, and `INF`/empty paths for unreachable vertices. The graph rejects negative weights when inserted. |
+| Minimum spanning tree | Kruskal sorts the roads by cost, then uses a disjoint-set union (DSU) to avoid cycles. The DSU uses path compression and union by size. Prim grows a tree using a priority queue. If the graph is disconnected, both algorithms return a forest and set `connected=false`. |
+| Topological order | Kahn's algorithm starts with vertices that have no incoming edges. If it cannot process every vertex, there is a cycle, so it returns no order. |
+| Strongly connected components | Kosaraju runs two iterative depth-first searches. Between the passes, it reverses all edges. Each output group contains vertices that can reach one another. |
+| Shortest paths | Dijkstra starts at a chosen district and keeps the next closest candidate in a priority queue. It returns distances and the actual paths. Unreachable vertices get `INF` and an empty path. |
 
-The MST weight is accumulated in a `long`, and Dijkstra checks for `long` overflow before addition. Equal edge weights may yield different valid MST edge sets, so the correctness comparison uses total weight. In benchmark data, `edge_examinations` counts inspected edges or arcs; `other_operations` counts the algorithm-specific operations described below.
+I used `long` for total costs and distances to avoid ordinary integer overflow. Dijkstra also checks before adding a weight to a distance. The graph rejects negative weights when an edge is added. When several roads have the same weight, there can be more than one correct MST. That is why I compare the **total weight** from Kruskal and Prim, not their exact edge lists.
 
 ## Complexity analysis
 
-The graph uses adjacency lists and the heaps are binary heaps. `V` is the vertex count and `E` is the number of stored input edges; an undirected edge appears twice in adjacency lists. Runtime bounds assume standard Java library implementations.
+These bounds assume adjacency lists and Java's binary-heap priority queue. `V` means vertices and `E` means input edges. Each undirected road is stored twice in the adjacency lists, once for each direction.
 
 | Algorithm | Time | Additional space | Effect of graph size |
 |---|---|---|---|
@@ -44,7 +44,7 @@ The graph uses adjacency lists and the heaps are binary heaps. `V` is the vertex
 | Kahn topological ordering | `O(V+E+V log V)` with a priority queue | `O(V)` beyond the input graph | Indegree calculation scans `E` edges; each vertex enters/leaves the heap once. A FIFO queue would give `O(V+E)` without deterministic smallest-ID tie breaking. |
 | Dijkstra | `O((V+E) log E)` with lazy duplicate heap entries | `O(V+E)` | Reachable edges are relaxed once; more edges can create more heap entries. With a decrease-key heap the usual bound is `O((V+E) log V)`. |
 
-Dijkstra's greedy choice is invalid for negative edges: a vertex considered final can later receive a shorter path. The application rejects negative edges. Negative cycles also make finite shortest paths undefined for affected vertices; Bellman-Ford is appropriate when negative edges must be supported.
+Dijkstra needs non-negative weights. With a negative road weight, a district that already looks finished could later get a shorter route, so the greedy step would no longer be reliable. I reject negative weights in this project. If they were required, I would use Bellman-Ford instead.
 
 ## Experimental setup
 
@@ -54,15 +54,15 @@ Dijkstra's greedy choice is invalid for negative edges: a vertex considered fina
 | Medium | 100 | 500 |
 | Large | 1,000 | 5,000 |
 
-`GraphFactory` uses `java.util.Random` with seed `20261019 + V` for each size. It generates exactly `E` distinct, non-self-loop edges. The undirected road graph first adds a random spanning tree, then adds random pairs, so it is connected; weights are uniformly drawn integers from 1 to 100. A directed DAG uses only edges from a smaller to a larger vertex ID. A separate cyclic directed graph starts with `0 -> 1 -> 0` and adds random directed edges, so a cycle is guaranteed. The cyclic graph is used for both SCC and failed topological-order runs. Dijkstra starts at district 0 on the road graph.
+I used the fixed seed `20261019 + V`, so each size generates the same graph whenever the experiment is repeated. There are exactly `E` different edges and no self-loops. For the road graph, I add a spanning tree first to make sure every district is connected, then add random roads. Road weights are integers from 1 to 100. For the directed DAG, edges always go from a smaller vertex ID to a larger one. For the cyclic case, I add `0 -> 1 -> 0` before the random edges, so that graph definitely contains a cycle. Dijkstra starts at district 0.
 
-For each graph and algorithm, the benchmark runs three unrecorded warm-ups and five recorded runs of the same graph. It times only the algorithm call with `System.nanoTime()` and reports the arithmetic mean. Graph generation, checks, CSV writing, and plotting occur outside timing. Each algorithm returns an operation count from its last recorded run. `Kruskal`'s second count combines sort comparisons and DSU `find` calls; `Prim`'s is heap comparisons; `Dijkstra`'s combines successful relaxations and heap comparisons. These operation categories are useful for tracking growth within an algorithm, but their raw magnitudes do not measure identical work across algorithms. The cyclic topological run can finish early after initial indegree construction, so it may examine fewer than `2E` arcs.
+For each size, I ran an algorithm three times to warm it up, then timed five more runs with `System.nanoTime()`. The table shows the average of those five runs. I generated the graphs before timing, so the numbers measure the algorithm itself rather than random graph creation. The CSV also records edge examinations and another operation count: sort comparisons plus DSU `find` calls for Kruskal, heap comparisons for Prim, and relaxations plus heap comparisons for Dijkstra. These are different kinds of work, so the counts are best compared **within** an algorithm as the graph grows. On a cyclic graph, topological sorting may stop early and examine fewer edges.
 
-The included run used Microsoft OpenJDK 17.0.20.1 on Windows with an Intel Core i5-13420H (12 logical processors). These are short, single-process timings, so JIT compilation, garbage collection, and background load can affect them. The three sizes also increase `V` and `E` together, so the plots demonstrate scaling along these configurations rather than isolating the independent effect of either variable.
+I ran the recorded experiment on Windows with Microsoft OpenJDK 17.0.20.1 and an Intel Core i5-13420H. The smallest timings are only a few hundredths of a millisecond, so background activity and Java warm-up can noticeably change them. Also, both `V` and `E` increase between the three sizes. The plots show how these particular test cases scale, not the separate effect of changing only one variable.
 
 ## Results
 
-Average time is in milliseconds. `Edges scanned` and `Other ops` correspond to the operation definitions above. All source measurements are in [benchmark.csv](results/tables/benchmark.csv).
+The table below is from one run. Times are in milliseconds; the unrounded measurements and counts are in [benchmark.csv](results/tables/benchmark.csv).
 
 | Algorithm | V | E | Avg ms | Edges scanned | Other ops | Result |
 |---|---:|---:|---:|---:|---:|---|
@@ -89,20 +89,20 @@ Average time is in milliseconds. `Edges scanned` and `Other ops` correspond to t
 
 ![Execution time versus edges](results/plots/time_vs_edges.svg)
 
-Both axes are logarithmic so all six series are visible. Time values come from the same 18 benchmark rows; changing the horizontal axis does not create an independent experiment.
+I used logarithmic axes so the small and large cases can be seen on the same plots. Both plots use the same benchmark data, once against vertices and once against edges.
 
 ## Comparison and discussion
 
-Kruskal and Prim returned identical MST weights for all connected cases, as expected. Kruskal was faster in the medium measured run and Prim was faster in the large run, although Prim scanned all `2E` undirected adjacency arcs and made many heap comparisons. Kruskal examined fewer sorted edges before completing the tree, but it had to sort all `E` edges first. These results are specific to the data, implementation, and machine; operation counts make the different work patterns more informative than the sub-millisecond small-case timings.
+The first thing I checked was whether Kruskal and Prim agreed. They did: the MST weights were 156, 1,281, and 12,753 for the three graphs. Kruskal was a little faster on the medium graph, while Prim was faster on the large one. Prim looked at both directions of every road, but Kruskal paid for sorting all the roads before it could start selecting them. With only five timed runs, I would not treat the small differences as a general rule that one algorithm is always faster.
 
-Kosaraju examined exactly `3E` directed edges: one DFS pass, one transpose construction, and one reverse DFS pass. Its measured time grew from 0.075 ms to 1.773 ms across the sizes. This is consistent with linear work in `V+E`, but timings alone do not prove an asymptotic bound. SCC counts (1, 3, 8) depend on the seeded random graphs.
+Kosaraju's time increased from 0.075 ms on the small graph to 1.773 ms on the large graph. It examined each directed edge three times overall: in the first search, while reversing edges, and in the second search. That matches the expected linear work in `V+E`. The generated graphs had 1, 3, and 8 SCCs; those counts come from this seed and are not fixed properties of the sizes.
 
-The DAG topological pass scanned `2E` edges: indegree creation and processing. The cyclic graph was correctly rejected at all three sizes; its early exit explains its lower time. Dijkstra scanned `2E` road arcs and its heap work increased markedly as the graphs grew. Since the road graph is connected, all vertices were reachable in these runs; unreachable behavior is covered by tests.
+Topological sorting produced an order for every generated DAG and rejected every cyclic graph. The cyclic cases were faster because the algorithm stopped before it could process all vertices. Dijkstra examined both directions of each road, and its heap work grew along with the graph. Every district in these benchmark road graphs was reachable; I tested the unreachable case separately.
 
 ## Testing
 
-Run `java -cp build Tests`. The suite currently makes 22 assertions and covers a small connected graph with duplicate weights and multiple possible MSTs, a disconnected graph, a single vertex, DSU repeated unions, a DAG's edge-by-edge ordering validity, a graph with multiple SCCs and a cycle, every vertex appearing in exactly one SCC, exact Dijkstra distances and path, an unreachable vertex, and rejection of a negative edge. The benchmark additionally checks that Kruskal and Prim agree on each generated connected graph, every directed edge respects the generated DAG ordering, cyclic inputs are rejected, every vertex belongs to exactly one SCC, and all districts in the connected road graph are reachable from district 0.
+I included a `Tests` class with 22 assertions. It checks a small road graph with equal weights and more than one possible MST, a disconnected graph, a single vertex, repeated DSU unions, valid ordering for a DAG, cycle detection, SCC membership, exact shortest distances and paths, an unreachable vertex, and rejection of a negative weight. The benchmark also checks its generated graphs: both MST methods must agree, the DAG order must respect every edge, the cyclic graph must be rejected, every vertex must appear in one SCC, and all road districts must be reachable from district 0.
 
 ## Conclusion
 
-Use Kruskal or Prim to plan a low-cost connected road network; both give the same minimum total cost, and this implementation's Prim performed better on the largest measured graph. Use Kahn's algorithm to order acyclic service dependencies, Kosaraju to identify mutually reachable groups in directed networks, and Dijkstra to plan travel routes with non-negative distances. If roads are disconnected, the MST algorithms report a forest and flag the lack of a citywide connection. If negative route weights are required, use a different shortest-path algorithm.
+For road construction, either Kruskal or Prim gives the minimum total cost when the city graph is connected. If it is not connected, the result is a forest and the program reports that clearly. Kahn's algorithm fits service dependencies when they do not contain a cycle. Kosaraju is useful for finding groups connected in both directions. Dijkstra is the route-planning choice here because road distances are non-negative. The experiment did not show one MST algorithm winning at every size, which is a good reminder to consider both the graph and the implementation when choosing between them.
